@@ -1,0 +1,6 @@
+{
+  "name": "SWEAT RUN",
+  "description": "A 3D lane runner workout game controlled by real body movements using MediaPipe Pose.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

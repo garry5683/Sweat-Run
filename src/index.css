@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-bebas: "Bebas Neue", sans-serif;
+  --font-rajdhani: "Rajdhani", sans-serif;
+  --color-neon-green: #00f5a0;
+  --color-neon-blue: #00c8ff;
+  --color-neon-red: #ff3e3e;
+  --color-neon-gold: #ff9d00;
+  --color-dark-bg: #050810;
+  --color-panel-bg: #0a0f1d;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-dark-bg);
+  color: white;
+  font-family: var(--font-rajdhani);
+}
+
+canvas {
+  display: block;
+}
+
+/* Perspective Grid Background */
+.perspective-grid {
+  position: absolute;
+  bottom: 0;
+  width: 200%;
+  height: 300px;
+  left: -50%;
+  background: linear-gradient(0deg, transparent 0%, rgba(0, 245, 160, 0.1) 100%);
+  border-top: 1px solid rgba(0, 245, 160, 0.3);
+  transform: rotateX(60deg);
+  transform-origin: bottom;
+  background-size: 100px 100px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 245, 160, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 245, 160, 0.1) 1px, transparent 1px);
+}
+
+.glow-green {
+  filter: drop-shadow(0 0 10px #00f5a0);
+}
+
+.glow-blue {
+  filter: drop-shadow(0 0 10px #00c8ff);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s infinite;
+}
