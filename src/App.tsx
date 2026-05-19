@@ -604,6 +604,25 @@ export default function App() {
       }
     }
 
+    // Camera Dynamic Follow
+    if (g.camera && g.player) {
+      // 1. Smoothly follow player lane (horizontal lag)
+      const targetCamX = g.player.position.x;
+      g.camera.position.x = THREE.MathUtils.lerp(g.camera.position.x, targetCamX, 0.05 * dt);
+
+      // 2. Smoothly follow player height (vertical responsiveness)
+      const targetCamY = 3.5 + (g.player.position.y * 0.5); 
+      g.camera.position.y = THREE.MathUtils.lerp(g.camera.position.y, targetCamY, 0.05 * dt);
+
+      // 3. Dynamic Tilting
+      // Tilt camera based on sideways movement speed
+      const lateralVelocity = (g.player.position.x - g.targetX) * 0.1;
+      g.camera.rotation.z = THREE.MathUtils.lerp(g.camera.rotation.z, -lateralVelocity, 0.1 * dt);
+      
+      // Look at a target ahead of player
+      g.camera.lookAt(g.player.position.x * 0.3, 1, 0);
+    }
+
     // Spawning
     g.spawnTimer -= dt;
     if (g.spawnTimer <= 0) {
