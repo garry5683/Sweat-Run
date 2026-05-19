@@ -279,28 +279,32 @@ export default function App() {
     }
 
     // Lane Logic (Mirrored feed)
-    const leanThreshold = [0.15, 0.12, 0.09][difficultyRef.current - 1]; 
+    const leanThreshold = [0.12, 0.10, 0.08][difficultyRef.current - 1]; 
+    const neutralThreshold = [0.06, 0.05, 0.04][difficultyRef.current - 1];
     let nextLane = gameRef.current.currentLane;
     
     // User leaning Left (detected as screen right)
     const isLeaningLeft = shoulderCenterX > 0.5 + leanThreshold;
     // User leaning Right (detected as screen left)
     const isLeaningRight = shoulderCenterX < 0.5 - leanThreshold;
+    const isNeutral = Math.abs(shoulderCenterX - 0.5) < neutralThreshold;
 
     if (isLeaningLeft) nextLane = 0; // Left
     else if (isLeaningRight) nextLane = 2; // Right
-    else nextLane = 1;
-
-    if (nextLane !== gameRef.current.currentLane) {
-      gameRef.current.currentLane = nextLane;
-      gameRef.current.targetX = LANES[nextLane];
-    }
+    else if (isNeutral) nextLane = 1; // Center
+    
+    // else keep currentLane
 
     // Jump / Duck - adjusted thresholds
     const jumpThreshold = [0.15, 0.12, 0.09][difficultyRef.current - 1];
     const duckThreshold = [0.18, 0.15, 0.12][difficultyRef.current - 1];
     const isJumpingPose = nose.y < state.baselineNoseY - jumpThreshold;
     const isDuckingPose = nose.y > state.baselineNoseY + duckThreshold;
+
+    if (nextLane !== gameRef.current.currentLane) {
+      gameRef.current.currentLane = nextLane;
+      gameRef.current.targetX = LANES[nextLane];
+    }
 
     // Run in place detection (leg variance and movement speed)
     const leftKnee = landmarks[25];
@@ -604,7 +608,7 @@ export default function App() {
     g.spawnTimer -= dt;
     if (g.spawnTimer <= 0) {
       spawnObstacle();
-      g.spawnTimer = Math.max(30, 80 - g.speed * 100);
+      g.spawnTimer = Math.max(60, 120 - g.speed * 100);
     }
 
     g.coinTimer -= dt;
