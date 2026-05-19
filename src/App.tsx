@@ -37,6 +37,7 @@ export default function App() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [difficulty, setDifficulty] = useState(1);
+  const [cursor, setCursor] = useState({ x: 0, y: 0, visible: false, progress: 0, targetId: null as string | null });
   const gameStateRef = useRef<GameState>('START');
   const difficultyRef = useRef(1);
 
@@ -193,6 +194,11 @@ export default function App() {
     const win = window as any;
     setIsPoseActive(true);
     const landmarks = results.poseLandmarks;
+    const nose = landmarks[0];
+    const leftWrist = landmarks[15];
+    const rightWrist = landmarks[16];
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
 
     // Draw overlay
     if (overlayCanvasRef.current) {
@@ -204,11 +210,63 @@ export default function App() {
       }
     }
 
+    // Hand Cursor Logic (Use the wrist that is higher/visible)
+    // Map MP coordinates (0-1) to screen percentages
+    // MP X is usually mirrored, but our video is scale-x-[-1]
+    const activeWrist = leftWrist.visibility > 0.5 || rightWrist.visibility > 0.5 
+      ? (leftWrist.y < rightWrist.y ? leftWrist : rightWrist) 
+      : null;
+
+    if (activeWrist && (gameStateRef.current === 'START' || gameStateRef.current === 'GAMEOVER' || showTutorial)) {
+      // Invert X because the video feed is mirrored
+      const cursorX = (1 - activeWrist.x) * 100;
+      const cursorY = activeWrist.y * 100;
+      
+      // Look for interactive elements
+      const elements = document.querySelectorAll('[data-hand-select]');
+      let foundTarget = null;
+      
+      elements.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const screenX = (cursorX / 100) * window.innerWidth;
+        const screenY = (cursorY / 100) * window.innerHeight;
+        
+        if (
+          screenX >= rect.left && 
+          screenX <= rect.right && 
+          screenY >= rect.top && 
+          screenY <= rect.bottom
+        ) {
+          foundTarget = el.getAttribute('data-hand-select-id');
+        }
+      });
+
+      setCursor(prev => {
+        const isSameTarget = prev.targetId === foundTarget;
+        const newProgress = foundTarget 
+          ? (isSameTarget ? Math.min(100, prev.progress + 2.5) : 0) 
+          : 0;
+
+        if (newProgress >= 100 && prev.progress < 100 && foundTarget) {
+          // Trigger click
+          const targetEl = document.querySelector(`[data-hand-select-id="${foundTarget}"]`) as HTMLElement;
+          if (targetEl) targetEl.click();
+        }
+
+        return {
+          x: cursorX,
+          y: cursorY,
+          visible: true,
+          progress: newProgress,
+          targetId: foundTarget
+        };
+      });
+    } else {
+      setCursor(prev => ({ ...prev, visible: false, progress: 0, targetId: null }));
+    }
+
     // Controls Logic
     const state = gameRef.current.poseState;
-    const nose = landmarks[0];
-    const leftShoulder = landmarks[11];
-    const rightShoulder = landmarks[12];
     const hipCenterY = (landmarks[23].y + landmarks[24].y) / 2;
     const shoulderCenterX = (leftShoulder.x + rightShoulder.x) / 2;
 
@@ -659,6 +717,45 @@ export default function App() {
       {/* Canvas Layer */}
       <canvas ref={canvasRef} className="absolute inset-0 z-0" />
 
+      {/* Hand Cursor Indicator */}
+      {cursor.visible && (
+        <div 
+          className="fixed z-[100] pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${cursor.x}%`, top: `${cursor.y}%` }}
+        >
+          <div className="relative w-12 h-12">
+            {/* Outer Progress Ring */}
+            <svg className="absolute inset-0 w-full h-full -rotate-90">
+              <circle
+                cx="24" cy="24" r="20"
+                fill="none"
+                stroke="white"
+                strokeWidth="2"
+                className="opacity-20"
+              />
+              <circle
+                cx="24" cy="24" r="20"
+                fill="none"
+                stroke="#00f5a0"
+                strokeWidth="4"
+                strokeDasharray="125.6"
+                strokeDashoffset={125.6 - (125.6 * cursor.progress) / 100}
+                strokeLinecap="round"
+                className="transition-all duration-75"
+              />
+            </svg>
+            {/* Center Dot */}
+            <div className={`absolute inset-0 m-auto w-3 h-3 rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)] ${cursor.targetId ? 'scale-150 bg-[#00f5a0]' : ''} transition-transform`} />
+            
+            {cursor.targetId && (
+              <div className="absolute top-14 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] text-[#00f5a0] font-black uppercase tracking-tighter">
+                Selecting...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Decorative Grid Side Labels */}
       <div className="absolute right-0 top-[20%] w-12 h-[60%] flex flex-col justify-around items-center border-l border-[#00c8ff]/20 bg-white/5 opacity-40 z-10 hidden md:flex">
         <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] tracking-[0.5em] font-bold text-[#00c8ff] uppercase">Movement Calibration Engine</div>
@@ -740,6 +837,9 @@ export default function App() {
               <button 
                 onClick={startGame}
                 disabled={!cameraReady}
+                id="btn-start"
+                data-hand-select
+                data-hand-select-id="start-workout"
                 className={`px-12 py-5 font-black text-2xl uppercase tracking-[0.2em] rounded-sm transition-all shadow-[0_0_40px_rgba(0,245,160,0.4)] mb-6
                   ${cameraReady 
                     ? 'bg-[#00f5a0] text-[#050810] hover:scale-105 active:scale-95 cursor-pointer' 
@@ -764,6 +864,8 @@ export default function App() {
               
               <button 
                 onClick={() => setShowTutorial(true)}
+                data-hand-select
+                data-hand-select-id="show-tutorial"
                 className="px-8 py-3 bg-white/10 text-white font-bold uppercase tracking-widest rounded-sm hover:bg-white/20 transition-all mb-6"
               >
                   How to Play
@@ -800,6 +902,8 @@ export default function App() {
 
             <button 
               onClick={startGame}
+              data-hand-select
+              data-hand-select-id="restart-game"
               className="px-16 py-6 bg-white text-[#050810] rounded-sm font-black text-2xl uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-[0_0_50px_rgba(255,255,255,0.3)]"
             >
               Restart Engine
@@ -866,7 +970,14 @@ function TutorialModal({ isOpen, onClose, indicators }: { isOpen: boolean, onClo
             </div>
             <p className="text-center text-xs opacity-50 mt-4">Perform a move to see the indicator light up!</p>
         </div>
-        <button onClick={onClose} className="w-full py-4 bg-[#00f5a0] text-[#050810] font-black uppercase tracking-widest rounded-sm hover:scale-105 active:scale-95 transition-all">Close Tutorial</button>
+        <button 
+          onClick={onClose} 
+          data-hand-select
+          data-hand-select-id="close-tutorial"
+          className="w-full py-4 bg-[#00f5a0] text-[#050810] font-black uppercase tracking-widest rounded-sm hover:scale-105 active:scale-95 transition-all"
+        >
+          Close Tutorial
+        </button>
       </div>
     </div>
   );
